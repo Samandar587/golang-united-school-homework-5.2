@@ -1,23 +1,66 @@
-package cache
+package main
 
-import "time"
+import (
+	"time"
+)
 
 type Cache struct {
+	kv       map[string]string
+	ev       map[string]string
+	deadline map[string]time.Time
+	dead     map[string]bool
 }
 
 func NewCache() Cache {
-	return Cache{}
+	c := Cache{
+		kv:       make(map[string]string),
+		ev:       make(map[string]string),
+		deadline: make(map[string]time.Time),
+		dead:     make(map[string]bool),
+	}
+	return c
 }
 
-func (receiver) Get(key string) (string, bool) {
+func (c Cache) Get(key string) (string, bool) {
 
+	if val, ok := c.kv[key]; ok {
+		return val, true
+	}
+
+	if val, ok := c.ev[key]; ok {
+		if c.deadline[key].Before(time.Now()) {
+			c.dead[key] = true
+			return "", false
+		}
+		return val, true
+	}
+
+	return "", false
 }
 
-func (receiver) Put(key, value string) {
+func (c Cache) Put(key, value string) {
+	c.kv[key] = value
 }
 
-func (receiver) Keys() []string {
+func (c Cache) Keys() []string {
+	keys := make([]string, len(c.kv))
+
+	i := 0
+	for k := range c.kv {
+		keys[i] = k
+		i++
+	}
+
+	for k := range c.ev {
+		if c.dead[k] == false {
+			keys = append(keys, k)
+		}
+	}
+
+	return keys
 }
 
-func (receiver) PutTill(key, value string, deadline time.Time) {
+func (c Cache) PutTill(key, value string, deadline time.Time) {
+	c.ev[key] = value
+	c.deadline[key] = deadline
 }
